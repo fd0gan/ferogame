@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kalp</title>
+    <style>
+        :root {
+            --primary-pink: #ff4757;
+            --bear-brown: #8d6e63;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            background: linear-gradient(135deg, #fff5f6 0%, #ffe0e0 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        #game-area {
+            position: relative;
+            width: 100%;
+            height: 75vh;
+            overflow: hidden;
+        }
+
+        .heart {
+            position: absolute;
+            font-size: 50px;
+            cursor: grab;
+            user-select: none;
+            touch-action: none;
+            z-index: 20;
+            filter: drop-shadow(0 4px 8px rgba(255, 71, 87, 0.3));
+        }
+
+        .bear-helper {
+            position: absolute;
+            font-size: 40px;
+            opacity: 0.6;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        #target-container {
+            width: 100%;
+            height: 25vh;
+            background: rgba(255, 255, 255, 0.8);
+            border-top: 5px solid #ffccd2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 30;
+            backdrop-filter: blur(5px);
+        }
+
+        #gift-box {
+            font-size: 90px;
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            filter: drop-shadow(0 10px 15px rgba(0,0,0,0.1));
+        }
+
+        #gift-box.bounce {
+            transform: scale(1.4) rotate(5deg);
+        }
+
+        #score-board {
+            position: absolute;
+            top: 20px;
+            z-index: 50;
+            background: white;
+            padding: 10px 25px;
+            border-radius: 30px;
+            font-weight: bold;
+            color: var(--primary-pink);
+            box-shadow: 0 5px 15px rgba(255, 71, 87, 0.2);
+            font-size: 1.1rem;
+        }
+
+        #final-screen {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            z-index: 1000;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+            animation: slideUp 0.6s ease-out;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+
+        .bear-final {
+            font-size: 100px;
+            margin-bottom: 10px;
+            animation: wiggle 2s infinite ease-in-out;
+        }
+
+        @keyframes wiggle {
+            0%, 100% { transform: rotate(-5deg); }
+            50% { transform: rotate(5deg); }
+        }
+
+        .message {
+            font-size: 1.6rem;
+            color: #d81b60;
+            line-height: 1.4;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+
+        .flowers {
+            font-size: 4rem;
+            margin: 15px 0;
+        }
+
+        .instruction {
+            color: #8d6e63;
+            font-size: 0.9rem;
+            margin-top: 5px;
+            font-weight: 500;
+        }
+
+        .particle {
+            position: fixed;
+            pointer-events: none;
+            z-index: 1100;
+        }
+
+        #restart-btn {
+            background: var(--primary-pink);
+            color: white;
+            border: none;
+            padding: 15px 35px;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(255, 71, 87, 0.4);
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="score-board">🧸 Kalpleri Topla: <span id="score">0</span> / 10</div>
+
+    <div id="game-area">
+        <!-- Kalpler ve Ayıcıklar buraya gelecek -->
+    </div>
+
+    <div id="target-container">
+        <div id="gift-box">🎁</div>
+        <div class="instruction">Kalpleri ayıcığın kutusuna sürükle! 🧸</div>
+    </div>
+
+    <!-- Final Ekranı -->
+    <div id="final-screen">
+        <div class="bear-final">🧸✨</div>
+        <div class="message">
+            Biliyordum <strong>Cansu Sultan</strong> başaracağını!<br><br>
+            Bu çiçekler sana... 🌹✨
+        </div>
+        <div class="flowers">💐🌸🌷🌹🌻</div>
+        <button id="restart-btn" onclick="location.reload()">Tekrar Oyna ❤️</button>
+    </div>
+
+    <script>
+        const gameArea = document.getElementById('game-area');
+        const giftBox = document.getElementById('gift-box');
+        const scoreDisplay = document.getElementById('score');
+        const finalScreen = document.getElementById('final-screen');
+        const targetContainer = document.getElementById('target-container');
+
+        let score = 0;
+        const totalHearts = 10;
+        let activeHeart = null;
+        let offsetX, offsetY;
+
+        // Rastgele süs ayıcıkları oluştur (Arka plan için)
+        function spawnBearHelper() {
+            const bear = document.createElement('div');
+            bear.className = 'bear-helper';
+            bear.innerHTML = '🧸';
+            bear.style.left = Math.random() * 90 + 'vw';
+            bear.style.top = Math.random() * 60 + 'vh';
+            gameArea.appendChild(bear);
+        }
+
+        for(let i=0; i<3; i++) spawnBearHelper();
+
+        // Kalp oluşturma
+        function spawnHeart() {
+            const heart = document.createElement('div');
+            heart.className = 'heart';
+            heart.innerHTML = Math.random() > 0.5 ? '❤️' : '💖';
+            heart.style.left = Math.random() * (window.innerWidth - 70) + 'px';
+            heart.style.top = Math.random() * (window.innerHeight * 0.4) + 'px';
+            
+            // Sürükleme olayları
+            heart.addEventListener('touchstart', handleStart, {passive: false});
+            heart.addEventListener('mousedown', handleStart);
+
+            gameArea.appendChild(heart);
+            animateFloating(heart);
+        }
+
+        function animateFloating(el) {
+            let startPos = parseFloat(el.style.top);
+            let angle = Math.random() * Math.PI * 2;
+            function step() {
+                if (activeHeart !== el && el.parentElement) {
+                    angle += 0.03;
+                    el.style.transform = `translateY(${Math.sin(angle) * 15}px) rotate(${Math.sin(angle) * 5}deg)`;
+                    requestAnimationFrame(step);
+                }
+            }
+            requestAnimationFrame(step);
+        }
+
+        function handleStart(e) {
+            e.preventDefault();
+            activeHeart = e.target;
+            const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+            const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+
+            const rect = activeHeart.getBoundingClientRect();
+            offsetX = clientX - rect.left;
+            offsetY = clientY - rect.top;
+
+            activeHeart.style.zIndex = '1000';
+            activeHeart.style.transform = 'scale(1.3)';
+        }
+
+        function handleMove(e) {
+            if (!activeHeart) return;
+            const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+            const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+
+            activeHeart.style.left = (clientX - offsetX) + 'px';
+            activeHeart.style.top = (clientY - offsetY) + 'px';
+
+            checkTarget(clientX, clientY);
+        }
+
+        function handleEnd() {
+            if (activeHeart) {
+                activeHeart.style.transform = 'scale(1)';
+                activeHeart = null;
+            }
+        }
+
+        function checkTarget(x, y) {
+            const targetRect = targetContainer.getBoundingClientRect();
+            
+            if (x > targetRect.left && x < targetRect.right && y > targetRect.top) {
+                score++;
+                scoreDisplay.innerText = score;
+                
+                giftBox.classList.add('bounce');
+                setTimeout(() => giftBox.classList.remove('bounce'), 200);
+                
+                const heartToRemove = activeHeart;
+                activeHeart = null;
+                heartToRemove.style.transition = 'all 0.3s ease';
+                heartToRemove.style.transform = 'scale(0)';
+                setTimeout(() => heartToRemove.remove(), 300);
+
+                if (score >= totalHearts) {
+                    showFinal();
+                } else {
+                    spawnHeart();
+                }
+            }
+        }
+
+        function showFinal() {
+            setTimeout(() => {
+                finalScreen.style.display = 'flex';
+                setInterval(createParticles, 250);
+            }, 400);
+        }
+
+        function createParticles() {
+            const p = document.createElement('div');
+            p.className = 'particle';
+            p.innerHTML = ['🌸', '🌹', '🧸', '💖', '✨'][Math.floor(Math.random() * 5)];
+            p.style.left = Math.random() * 100 + 'vw';
+            p.style.top = '-50px';
+            p.style.fontSize = (Math.random() * 20 + 25) + 'px';
+            document.body.appendChild(p);
+
+            p.animate([
+                { top: '-50px', transform: 'rotate(0deg) scale(0)' },
+                { top: '110vh', transform: `rotate(${Math.random() * 720}deg) scale(1)` }
+            ], {
+                duration: 4000,
+                easing: 'linear'
+            }).onfinish = () => p.remove();
+        }
+
+        document.addEventListener('touchmove', handleMove, { passive: false });
+        document.addEventListener('mousemove', handleMove);
+        document.addEventListener('touchend', handleEnd);
+        document.addEventListener('mouseup', handleEnd);
+
+        // İlk kalbi çıkar
+        spawnHeart();
+    </script>
+</body>
+</html>
